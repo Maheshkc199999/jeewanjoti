@@ -15,7 +15,7 @@ from django.contrib.auth import authenticate
 from django.core.cache import cache
 from rest_framework.permissions import IsAdminUser
 from .utils import generate_otp, store_otp, validate_otp
-from .serializers import RegisterSerializer, LoginSerializer,ProfileImageSerializer,ProfileUpdateSerializer
+from .serializers import RegisterSerializer, LoginSerializer,ProfileImageSerializer,ProfileUpdateSerializer,MacAddressUpdateSerializer
 
 
 
@@ -444,3 +444,29 @@ class UserEmailProfileView(APIView):
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
+
+class UpdateMacAddressView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def patch(self, request):
+        user = request.user
+        serializer = MacAddressUpdateSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "MAC address updated successfully!"})
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DeleteMacAddressView(APIView):
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication]
+
+    def delete(self, request):
+        user = request.user
+        if not user.mac_address:
+            return Response({"detail": "No MAC address is currently linked."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.mac_address = None
+        user.save()
+        return Response({"message": "MAC address unlinked successfully!"})

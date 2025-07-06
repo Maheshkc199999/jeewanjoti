@@ -48,6 +48,12 @@ class CustomUser(AbstractUser):
     last_name = models.CharField(max_length=30)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)  # Add created_at field
+    mac_address = models.CharField(
+        max_length=17,
+        unique=True,
+        null=True,
+        blank=True
+    )
 
     # Doctor-specific fields
     specialization = models.CharField(max_length=100, null=True, blank=True)

@@ -83,4 +83,12 @@ class ProfileImageSerializer(serializers.ModelSerializer):
         model = User
         fields = ['profile_image']
 
+class MacAddressUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['mac_address']
 
+    def validate_mac_address(self, value):
+        if value and User.objects.filter(mac_address=value).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError("This MAC address is already in use by another user.")
+        return value
