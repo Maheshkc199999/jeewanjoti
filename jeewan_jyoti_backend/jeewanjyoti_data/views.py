@@ -18,7 +18,8 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.utils.timezone import now
 from django.db.models import Sum
 from django.db.models import Avg
-
+import openai
+from openai import OpenAI
 from .serializers import HeartRateDataSerializer,HRVDataSerializer,BloodOxygenSerializer,Total_activity_DataSerializer,StepDataSerializer,TemperatureDataSerializers,SleepDataSerializer,BatteryStatusSerializer
 @api_view(['POST', 'GET'])
 @permission_classes([IsAuthenticated])
@@ -722,3 +723,248 @@ def fetch_aggregated_data(request):
     }
     
     return Response(response_data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([JWTAuthentication])
+def fetch_daily_data(request):
+    user_id = request.query_params.get('user_id')
+    date_str = request.query_params.get('date')  # Expecting 'YYYY-MM-DD'
+    field = request.query_params.get('field')
+
+    allowed_fields = [
+        'heart_rate_data',
+        'hrv_data',
+        'blood_oxygen_data',
+        'activity_data',
+        'temperature_data',
+        'steps_data',
+        'sleep_data'
+    ]
+
+    # ✅ Check authentication and permissions
+    if not user_id:
+        user_id = request.user.id
+    else:
+        user_id = int(user_id)
+        if not request.user.is_superuser:
+            return Response({"error": "Permission denied. Only superusers can access other users' data."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+    # ✅ Validate date
+    if not date_str:
+        return Response({"error": "Date parameter is required (format: YYYY-MM-DD)"},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        start_time = datetime.strptime(date_str, '%Y-%m-%d')
+        end_time = start_time + timedelta(days=1) - timedelta(seconds=1)
+    except ValueError:
+        return Response({"error": "Invalid date format. Use YYYY-MM-DD."},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    # ✅ Validate 'field' param
+    if not field:
+        return Response({"error": "The 'field' parameter is required."},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    if field not in allowed_fields:
+        return Response({"error": f"Invalid field '{field}'. Allowed values: {', '.join(allowed_fields)}."},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    # ✅ Helper to fetch data for the day
+    def get_day_data(model, serializer_class):
+        try:
+            query = model.objects.filter(user=user_id, date__range=(start_time, end_time)).order_by('date')
+            if not query.exists():
+                return None
+            serialized = serializer_class(query, many=True).data
+            for item in serialized:
+                item.pop('device_id', None)
+            return serialized
+        except Exception as e:
+            print(f"Error in get_day_data: {e}")
+            return None
+
+    # ✅ Fetch only the requested dataset
+    response_data = {}
+
+    if field == 'heart_rate_data':
+        data = get_day_data(HeartRate_Data, HeartRateDataSerializer)
+        if data:
+            response_data['heart_rate_data'] = data
+
+    elif field == 'hrv_data':
+        data = get_day_data(HRV, HRVDataSerializer)
+        if data:
+            response_data['hrv_data'] = data
+
+    elif field == 'blood_oxygen_data':
+        data = get_day_data(BloodOxygen, BloodOxygenSerializer)
+        if data:
+            response_data['blood_oxygen_data'] = data
+
+    elif field == 'activity_data':
+        data = get_day_data(activity_day_total, Total_activity_DataSerializer)
+        if data:
+            response_data['activity_data'] = data
+
+    elif field == 'temperature_data':
+        data = get_day_data(BodyTemperature, TemperatureDataSerializers)
+        if data:
+            response_data['temperature_data'] = data
+
+    elif field == 'steps_data':
+        data = get_day_data(StepData, StepDataSerializer)
+        if data:
+            response_data['steps_data'] = data
+
+    elif field == 'sleep_data':
+        data = get_day_data(SleepData, SleepDataSerializer)
+        if data:
+            response_data['sleep_data'] = data
+
+    return Response(response_data, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+@authentication_classes([JWTAuthentication])
+def fetch_AI_data(request):
+    user_id = request.user.id
+
+    date_str = request.query_params.get('date')  # Optional
+    field = request.query_params.get('field')
+
+    allowed_fields = [
+        'heart_rate_data',
+        'hrv_data',
+        'blood_oxygen_data',
+        'activity_data',
+        'temperature_data',
+        'steps_data',
+        'sleep_data'
+    ]
+
+    if not field:
+        return Response({"error": "The 'field' parameter is required."},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    if field not in allowed_fields:
+        return Response({"error": f"Invalid field '{field}'. Allowed values: {', '.join(allowed_fields)}."},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    # Determine date range
+    if date_str:
+        try:
+            start_time = datetime.strptime(date_str, '%Y-%m-%d')
+            end_time = start_time + timedelta(days=1) - timedelta(seconds=1)
+        except ValueError:
+            return Response({"error": "Invalid date format. Use YYYY-MM-DD."},
+                            status=status.HTTP_400_BAD_REQUEST)
+    else:
+        end_time = datetime.now()
+        start_time = end_time - timedelta(hours=24)
+
+    # Helper to fetch data
+    def get_day_data(model, serializer_class):
+        query = model.objects.filter(user=user_id, date__range=(start_time, end_time)).order_by('date')
+        if not query.exists():
+            return []
+        return serializer_class(query, many=True).data
+
+    # Fetch the requested field data
+    raw_data = []
+
+    if field == 'heart_rate_data':
+        raw_data = get_day_data(HeartRate_Data, HeartRateDataSerializer)
+
+    elif field == 'blood_oxygen_data':
+        raw_data = get_day_data(BloodOxygen, BloodOxygenSerializer)
+
+    elif field == 'temperature_data':
+        raw_data = get_day_data(BodyTemperature, TemperatureDataSerializers)
+
+    elif field == 'steps_data':
+        raw_data = get_day_data(StepData, StepDataSerializer)
+
+    elif field == 'activity_data':
+        raw_data = get_day_data(activity_day_total, Total_activity_DataSerializer)
+
+    elif field == 'hrv_data':
+        raw_data = get_day_data(HRV, HRVDataSerializer)
+
+    elif field == 'sleep_data':
+        raw_data = get_day_data(SleepData, SleepDataSerializer)
+
+    if not raw_data:
+        return Response({"error": f"No data found for {field} on {start_time.strftime('%Y-%m-%d')}."},
+                        status=status.HTTP_404_NOT_FOUND)
+
+    # ✅ Prepare prompt for DeepSeek
+    prompt = f"""
+    I have the following user health data for the field '{field}' on {start_time.strftime('%Y-%m-%d')}:
+
+    {raw_data}
+
+    Please analyze it and provide:
+    - A short health summary
+    - 2-3 clear health recommendations to improve or maintain good health
+
+    Format your response strictly as:
+    SUMMARY: <your summary here>
+    RECOMMENDATIONS:
+    1. <recommendation 1>
+    2. <recommendation 2>
+    3. <recommendation 3>
+    """
+
+    # ✅ Call DeepSeek API through OpenRouter
+    try:
+        # Initialize OpenAI client with OpenRouter configuration
+        client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key="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",
+        )
+
+        # Make the API call
+        completion = client.chat.completions.create(
+            extra_headers={
+                "HTTP-Referer": "<YOUR_SITE_URL>",  # Optional: Replace with your site URL
+                "X-Title": "<YOUR_SITE_NAME>",  # Optional: Replace with your site name
+            },
+            extra_body={},
+            model="deepseek/deepseek-chat-v3-0324:free",
+            messages=[
+                {"role": "system", "content": "You are a health assistant that gives concise and helpful feedback."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+
+        ai_text = completion.choices[0].message.content
+
+        # ✅ Parse AI response
+        summary = ""
+        recommendations = []
+
+        if "SUMMARY:" in ai_text and "RECOMMENDATIONS:" in ai_text:
+            summary_part, recommendations_part = ai_text.split("RECOMMENDATIONS:")
+            summary = summary_part.replace("SUMMARY:", "").strip()
+            recommendations = [line.strip().split(". ", 1)[-1] for line in recommendations_part.strip().split("\n") if
+                               line.strip()]
+        else:
+            summary = ai_text.strip()
+            recommendations = []
+
+    except Exception as e:
+        print(f"DeepSeek API error: {e}")
+        return Response({"error": "Failed to generate AI summary."},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # ✅ Final response
+    return Response({
+        "date": start_time.strftime('%Y-%m-%d'),
+        "field": field,
+        "summary": summary,
+        "recommendations": recommendations
+    }, status=status.HTTP_200_OK)

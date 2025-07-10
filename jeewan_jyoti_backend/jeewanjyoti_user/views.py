@@ -1,10 +1,11 @@
+
 from rest_framework.permissions import AllowAny
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.parsers import JSONParser,MultiPartParser, FormParser
+from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
@@ -17,12 +18,11 @@ from rest_framework.permissions import IsAdminUser
 from .utils import generate_otp, store_otp, validate_otp
 from .serializers import RegisterSerializer, LoginSerializer,ProfileImageSerializer,ProfileUpdateSerializer,MacAddressUpdateSerializer
 
-
-
 User = get_user_model()
 
+
 class RegisterView(APIView):
-    permission_classes = [AllowAny]  
+    permission_classes = [AllowAny]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def post(self, request):
@@ -58,7 +58,7 @@ class RegisterView(APIView):
 
 
 class VerifyOtpView(APIView):
-    permission_classes = [AllowAny] 
+    permission_classes = [AllowAny]
 
     def post(self, request):
         email = request.data.get('email')
@@ -76,15 +76,15 @@ class VerifyOtpView(APIView):
                 {"detail": "OTP expired or not requested."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         if cached_data["otp"] != email_otp:
             return Response(
                 {"detail": "Invalid OTP."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         user_data = cached_data["user_data"]
-        user_data.pop('confirm_password', None) 
+        user_data.pop('confirm_password', None)
 
         try:
             user = User.objects.create_user(**user_data)
@@ -127,7 +127,7 @@ class VerifyOtpView(APIView):
                     "experience": user.experience,
                     "education": user.education,
                     "description": user.description,
-                    "phone_number":user.phone_number
+                    "phone_number": user.phone_number
                 })
             elif role == "NURSE":
                 response_data["user"].update({
@@ -136,7 +136,7 @@ class VerifyOtpView(APIView):
                     "experience": user.experience,
                     "education": user.education,
                     "description": user.description,
-                    "phone_number":user.phone_number
+                    "phone_number": user.phone_number
                 })
             return Response(response_data, status=status.HTTP_201_CREATED)
 
@@ -145,7 +145,6 @@ class VerifyOtpView(APIView):
                 {"detail": f"An error occurred during user registration: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
 
 
 class LoginView(APIView):
@@ -164,7 +163,7 @@ class LoginView(APIView):
                     "message": "User logged in successfully",
                     "user": {
                         "email": user.email,
-                        "birthdate":user.birthdate,
+                        "birthdate": user.birthdate,
                         "first_name": user.first_name,
                         "last_name": user.last_name,
                         "gender": user.gender,
@@ -172,7 +171,7 @@ class LoginView(APIView):
                         "weight": user.weight,
                         "blood_group": user.blood_group,
                         "is_superuser": user.is_superuser,
-                        
+
                     },
                     "refresh": str(refresh),
                     "access": str(refresh.access_token),
@@ -181,9 +180,9 @@ class LoginView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
 class ResendOtpView(APIView):
     permission_classes = [AllowAny]
+
     def post(self, request):
         email = request.data.get('email')
 
@@ -206,6 +205,7 @@ class ResendOtpView(APIView):
 
         return Response({"message": "New OTP sent to your email."}, status=status.HTTP_200_OK)
 
+
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
@@ -218,11 +218,9 @@ class ForgotPasswordView(APIView):
         if not User.objects.filter(email=email).exists():
             return Response({"detail": "User with this email does not exist."}, status=status.HTTP_400_BAD_REQUEST)
 
-      
         reset_otp = generate_otp()
         store_otp(email, reset_otp)
 
-       
         send_mail(
             'Password Reset OTP',
             f'Your OTP for password reset is: {reset_otp}',
@@ -232,26 +230,26 @@ class ForgotPasswordView(APIView):
         )
 
         return Response({"message": "Password reset OTP sent."}, status=status.HTTP_200_OK)
-    
+
+
 class VerifyResetOtpView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         email = request.data.get('email')
-        email_otp = request.data.get('email_otp') 
+        email_otp = request.data.get('email_otp')
 
-        if not all([email, email_otp]):  
+        if not all([email, email_otp]):
             return Response({"detail": "Email and email_otp are required."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        is_valid, message = validate_otp(email, email_otp) 
+        is_valid, message = validate_otp(email, email_otp)
         if not is_valid:
             return Response({"detail": message}, status=status.HTTP_400_BAD_REQUEST)
 
-        cache.set(f"verified_reset:{email}", True, timeout=300)  
+        cache.set(f"verified_reset:{email}", True, timeout=300)
 
         return Response({"message": "OTP verified successfully."}, status=status.HTTP_200_OK)
-
 
 
 class ResetPasswordView(APIView):
@@ -260,7 +258,7 @@ class ResetPasswordView(APIView):
     def post(self, request):
         email = request.data.get('email')
         new_password = request.data.get('new_password')
-        confirm_password = request.data.get('confirm_password') 
+        confirm_password = request.data.get('confirm_password')
 
         if not all([email, new_password, confirm_password]):
             return Response(
@@ -282,12 +280,12 @@ class ResetPasswordView(APIView):
             user.set_password(new_password)
             user.save()
 
-    
             cache.delete(f"verified_reset:{email}")
 
             return Response({"message": "Password reset successfully."}, status=status.HTTP_200_OK)
         except User.DoesNotExist:
             return Response({"detail": "User does not exist."}, status=status.HTTP_400_BAD_REQUEST)
+
 
 class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]  # Only superusers
@@ -295,11 +293,11 @@ class DeleteAccountView(APIView):
 
     def delete(self, request):
         user_id = request.data.get('id')
-        
+
         # If the user is not a superuser, they can only delete their own account
         if not request.user.is_superuser and not user_id:
             user_id = request.user.id
-        
+
         if request.user.is_superuser and not user_id:
             return Response({"detail": "User ID is required for superuser."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -308,7 +306,7 @@ class DeleteAccountView(APIView):
                 user = User.objects.get(id=user_id)
             except User.DoesNotExist:
                 return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
-            
+
             # Prevent superuser from deleting themselves
             if user == request.user:
                 return Response({"detail": "You cannot delete your own account"}, status=status.HTTP_403_FORBIDDEN)
@@ -317,8 +315,9 @@ class DeleteAccountView(APIView):
                 user.delete()
                 return Response({"message": "User account deleted successfully."}, status=status.HTTP_200_OK)
             except Exception as e:
-                return Response({"detail": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+                return Response({"detail": f"An error occurred: {str(e)}"},
+                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         return Response({"detail": "User ID is required"}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -331,7 +330,7 @@ class ProfileUpdateView(APIView):
 
         # Normal users can only update their own profile
         if not request.user.is_superuser:
-            user = request.user  
+            user = request.user
         else:
             # Superuser/Admin can update their own profile or another user's profile
             if user_id:
@@ -352,11 +351,12 @@ class ProfileUpdateView(APIView):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    
+
 class ProfileImageUpdateView(APIView):
     permission_classes = [IsAuthenticated]
     authentication_classes = [JWTAuthentication]
     parser_classes = [MultiPartParser, FormParser]
+
     def patch(self, request):
         user = request.user
         serializer = ProfileImageSerializer(user, data=request.data, partial=True)
@@ -375,8 +375,7 @@ class ProfileImageUpdateView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
-#user list view for dashboard
+# user list view for dashboard
 class UserListView(APIView):
     permission_classes = [IsAuthenticated]  # Restrict access
     authentication_classes = [JWTAuthentication]
@@ -384,14 +383,13 @@ class UserListView(APIView):
     def get(self, request):
         if not request.user.is_superuser:  # Ensure only admins can access
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-        
+
         users = User.objects.all()
         serializer = RegisterSerializer(users, many=True)  # Serialize multiple users
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-
-#fetch doctor to all authencated user
+# fetch doctor to all authencated user
 class DoctorListView(APIView):
     permission_classes = [IsAuthenticated]  # Restrict access
     authentication_classes = [JWTAuthentication]
@@ -400,15 +398,14 @@ class DoctorListView(APIView):
         # Ensure only authenticated users can access this view
         if not request.user.is_authenticated:
             return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
-        
+
         # Fetch only users with the role 'DOCTOR'
         users = User.objects.filter(role='DOCTOR')  # Adjust the filter based on your actual role field
         serializer = RegisterSerializer(users, many=True)  # Serialize multiple users
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
 
-    
-#user email and profile photo for the dashboard
+
+# user email and profile photo for the dashboard
 
 class UserEmailProfileView(APIView):
     permission_classes = [IsAuthenticated]  # Only authenticated users
