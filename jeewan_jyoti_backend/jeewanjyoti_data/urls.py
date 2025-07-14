@@ -10,5 +10,9 @@ urlpatterns = [
     path('temperature_data/', views.Temperature_data_view, name='Temperature_data_view'),
     path('sleep-data/', views.sleep_data_view, name='sleep-data'),
     path('battery-status/', views.battery_status, name='battery_status'),
-    path('dashboard/', views.fetch_latest_single_column_data, name="dashboard")  
+    path('fetch-aggregated-data/', views.fetch_aggregated_data, name='fetch_aggregated_data'),
+    path('fetch_daily_data/', views.fetch_daily_data, name='fetch_daily_data'),
+    path('fetch_AI_data/', views.fetch_AI_data, name='fetch_AI_data'),
+    path('dashboard/', views.fetch_latest_single_column_data, name="dashboard")
 ]
+

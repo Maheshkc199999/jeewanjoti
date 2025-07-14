@@ -1,6 +1,14 @@
 import os
 from dotenv import load_dotenv
 load_dotenv()
+from datetime import timedelta
+from django.conf import settings
+from decouple import config
+import os
+from pathlib import Path
+import pymysql
+
+
 
 from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -12,7 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-rl0)0wp+d0*_+(psi82i=-rdh9k2fe45r67-lnbvl8w#n+8aj5'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -28,13 +36,17 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'corsheaders', 
+
+    # Third-party apps
+    'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
+    'channels',
+
+    # Your custom apps
     'jeewanjyoti_data',
     'jeewanjyoti_user',
     'hospital',
-    'channels', 
     'chat'
 ]
 
@@ -50,9 +62,6 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
 }
-from datetime import timedelta
-from django.conf import settings
-from decouple import config
 
 SECRET_KEY = config('SECRET_KEY')
 SIMPLE_JWT = {
@@ -70,19 +79,16 @@ SIMPLE_JWT = {
     'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
-DATA_UPLOAD_MAX_MEMORY_SIZE = 1048576000  
-
-
-
+DATA_UPLOAD_MAX_MEMORY_SIZE = 1048576000
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # Move this to the TOP!
+    'corsheaders.middleware.CorsMiddleware',  # First
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',  # Before auth
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',  # After auth
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 CORS_ALLOW_CREDENTIALS = True
@@ -117,7 +123,7 @@ ROOT_URLCONF = 'jeewan_jyoti_backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -139,43 +145,40 @@ ASGI_APPLICATION = 'jeewan_jyoti_backend.asgi.application'
 
 
 
-# Default database setup (for local development)
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT'),
-    }
-}
-
-
-
-
-# import os
-# from pathlib import Path
-# import pymysql
-
-# BASE_DIR = Path(__file__).resolve().parent.parent.parent
-# pymysql.install_as_MySQLdb()
-
+# # Default database setup (for local development)
 # DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.mysql",
-#         "NAME": os.getenv("DB_NAME"),
-#         "USER": os.getenv("DB_USER"),
-#         "PASSWORD": os.getenv("DB_PASSWORD"),
-#         "HOST": "localhost",
-#         "PORT": "3306",
-#         "OPTIONS": {
-#             "init_command":  "SET sql_mode='STRICT_TRANS_TABLES';",
-#             'charset': 'utf8mb4',
-#             'collation': 'utf8mb4_unicode_ci',
-#         },
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': os.getenv('DB_NAME'),
+#         'USER': os.getenv('DB_USER'),
+#         'PASSWORD': os.getenv('DB_PASSWORD'),
+#         'HOST': os.getenv('DB_HOST'),
+#         'PORT': os.getenv('DB_PORT'),
 #     }
 # }
+
+
+
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+pymysql.install_as_MySQLdb()
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": os.getenv("DB_NAME"),
+        "USER": os.getenv("DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "HOST": "localhost",
+        "PORT": "3306",
+        "OPTIONS": {
+            "init_command":  "SET sql_mode='STRICT_TRANS_TABLES';",
+            'charset': 'utf8mb4',
+            'collation': 'utf8mb4_unicode_ci',
+        },
+    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
