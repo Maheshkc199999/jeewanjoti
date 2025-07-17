@@ -1,4 +1,3 @@
-
 from rest_framework.permissions import AllowAny
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -16,7 +15,8 @@ from django.contrib.auth import authenticate
 from django.core.cache import cache
 from rest_framework.permissions import IsAdminUser
 from .utils import generate_otp, store_otp, validate_otp
-from .serializers import RegisterSerializer, LoginSerializer,ProfileImageSerializer,ProfileUpdateSerializer,MacAddressUpdateSerializer
+from .serializers import RegisterSerializer, LoginSerializer, ProfileImageSerializer, ProfileUpdateSerializer, \
+    MacAddressUpdateSerializer
 
 User = get_user_model()
 
@@ -441,6 +441,7 @@ class UserEmailProfileView(APIView):
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
+
 
 class UpdateMacAddressView(APIView):
     permission_classes = [IsAuthenticated]

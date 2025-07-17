@@ -21,3 +21,4 @@ urlpatterns = [
     path('mac_address/', UpdateMacAddressView.as_view(), name='UpdateMacAddressView'),
     path('Delete_Mac_Address/', DeleteMacAddressView.as_view(), name='DeleteMacAddressView')
 ]
+
