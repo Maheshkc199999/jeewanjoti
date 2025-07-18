@@ -1,5 +1,4 @@
 FROM python:3.11-slim
-
 WORKDIR /app
 
 # ✅ Install system dependencies required for mysqlclient
@@ -20,5 +19,5 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 # ✅ Copy your Django project files
 COPY . .
 
-# Change this if you're using gunicorn or celery or anything else
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# ✅ Run migrations and then start the server
+CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]

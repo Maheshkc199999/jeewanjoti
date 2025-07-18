@@ -3,7 +3,7 @@
 services:
   web:
     build: .
-    command: gunicorn your_django_app.wsgi:application --bind 0.0.0.0:8000
+    command: gunicorn jeewan_jyoti_backend.wsgi:application --bind 0.0.0.0:8000
     volumes:
       - .:/app
     env_file:
@@ -19,9 +19,12 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./static:/app/static
     depends_on:
       - web
+      - daphne
+
 
   db:
     image: mysql:8.0
@@ -33,9 +36,10 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./config/my.cnf:/etc/mysql/conf.d/my.cnf  # Add this line
+      - ./smarttec_jeewanjyoti_data.sql:/docker-entrypoint-initdb.d/smarttec_jeewanjyoti_data.sql
+#      - ./config/my.cnf:/etc/mysql/conf.d/my.cnf  # Add this line
     ports:
-      - "3306:3306"
+      - "3307:3306"
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
 
@@ -44,7 +48,7 @@ services:
 
   celery:
     build: .
-    command: celery -A your_django_app worker --loglevel=info
+    command: celery -A jeewan_jyoti_backend worker --loglevel=info
     depends_on:
       - redis
       - db
@@ -55,7 +59,7 @@ services:
 
   daphne:
     build: .
-    command: daphne -b 0.0.0.0 -p 8001 your_django_app.asgi:application
+    command: daphne -b 0.0.0.0 -p 8001 jeewan_jyoti_backend.asgi:application
     env_file:
       - .env
     depends_on:
